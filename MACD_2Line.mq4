@@ -123,6 +123,8 @@ int start()
       signal = -1;
       if( (MathAbs(HistogramBuffer[i]) < 0.01 || MathAbs(ExtMacdBuffer[i]-MACDLineBuffer[i]) < 0.01))
       {
+         for( int k = i+1; k <= i+8; k++){ if( SignalBuffer[k] != EMPTY_VALUE && SignalBuffer[k] >= 0 ) break;}
+         if( k <= i+8) continue;
          int s = 234; 
          int c = Yellow;
          double price = High[i] * 1.001; 
@@ -142,6 +144,7 @@ int start()
             //if(t == -1) 
             c = Green;
          }
+         
          if( signal == -1 && MathAbs(ExtMacdBuffer[i]- MACDLineBuffer[i]) < 0.01 && MathAbs(ExtMacdBuffer[i-5]- MACDLineBuffer[i-5]) > MACDOpenLevel*Point){
             if( ExtMacdBuffer[i+1] >= MACDLineBuffer[i] && ExtMacdBuffer[i] <= MACDLineBuffer[i-1] && SignalLineBuffer[i-5] >= ExtMacdBuffer[i-5]) //buy
             {
@@ -156,6 +159,7 @@ int start()
                   c = Lime;
               }
          }
+         
          string name = "macd2line_"+ TimeToStr(Time[i],TIME_DATE)+StringSubstr(TimeToStr(Time[i], TIME_MINUTES),0,2);
          if( signal != -1)
          {
