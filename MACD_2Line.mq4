@@ -104,8 +104,7 @@ int start()
    //---- last counted bar will be recounted
    if (counted_bars>0) counted_bars--;
    limit = Bars - counted_bars;
-   //if( limit < 1000) limit = 1000;
-   limit = Bars;
+   if( limit < 20) limit = 20;
 
    for(int i=limit; i>=0; i--)
    {
@@ -142,16 +141,16 @@ int start()
             if(t == -1) c = Green;
          }
          if( signal == -1 && MathAbs(ExtMacdBuffer[i]- MACDLineBuffer[i]) < 0.01 && MathAbs(ExtMacdBuffer[i-5]- MACDLineBuffer[i-5]) > MACDOpenLevel*Point){
-            if( (ExtMacdBuffer[i+1] >= MACDLineBuffer[i] && ExtMacdBuffer[i] <= MACDLineBuffer[i-1])) //buy
+            if( ExtMacdBuffer[i+1] >= MACDLineBuffer[i] && ExtMacdBuffer[i] <= MACDLineBuffer[i-1] && SignalLineBuffer[i-5] >= ExtMacdBuffer[i-5]) //buy
             {
-               signal = 0;
+               signal = 2;
                price  = Low[i]*0.999;
                s = 233;
                c = Brown;
             }
-            if(ExtMacdBuffer[i+1] <= MACDLineBuffer[i] && ExtMacdBuffer[i] >= MACDLineBuffer[i-1]) //sell
+            if(ExtMacdBuffer[i+1] <= MACDLineBuffer[i] && ExtMacdBuffer[i] >= MACDLineBuffer[i-1] && SignalLineBuffer[i-5] <= ExtMacdBuffer[i-5]) //sell
               {
-                  signal = 1;
+                  signal = 3;
                   c = Lime;
               }
          }
@@ -171,8 +170,10 @@ int start()
          
          if( ObjectFind(0, name) >= 0 ){
             if( ObjectGet(name, OBJPROP_COLOR) == Yellow) SignalBuffer[i] = -2*Point*100;
-            else if( ObjectGet(name,OBJPROP_ARROWCODE) == 233) SignalBuffer[i] = 0;
-            else SignalBuffer[i] = Point*100;
+            else if( ObjectGet(name,OBJPROP_COLOR) == Red) SignalBuffer[i] = 0;
+            else if( ObjectGet(name,OBJPROP_COLOR) == Brown) SignalBuffer[i] = 2*Point*100;
+            else if( ObjectGet(name,OBJPROP_COLOR) == Lime) SignalBuffer[i] = 3*Point*100;
+            else SignalBuffer[i] = 1*Point*100;
          }
          else 
             SignalBuffer[i] = signal*Point*100;
