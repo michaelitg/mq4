@@ -111,7 +111,7 @@ int start()
    //--- signal line counted in the 2-nd buffer
    //SimpleMAOnBuffer(Bars, counted_bars,0,SignalMAPeriod*2,ExtMacdBuffer,ExtSignalBuffer);
    
-   for(i=1000; i>=5; i--)
+   for(i=limit; i>=5; i--)
    {
       if( MathAbs(HistogramBuffer[i]) < 0.01 || MathAbs(ExtMacdBuffer[i]-MACDLineBuffer[i]) < 0.01)
       {
