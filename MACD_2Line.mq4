@@ -129,14 +129,14 @@ int start()
          double a1 = avg(HistogramBuffer, i, 5);
          double a2 = avg(HistogramBuffer, i-5, 5);
          int t = trend(i);
-         if( a1 < 0 && a2 > 0 )  //buy
+         if( a1 < 0 && a2 > MACDOpenLevel*Point)  //buy
          {
             s = 233;
             if( t == 1) c = Red;
             price  = Low[i]*0.999;
             signal = 0;
          }
-         if( a1 > 0 && a2 < 0 ){  //sell
+         if( a1 > 0 && a2 < -MACDOpenLevel*Point ){  //sell
             signal = 1;
             if(t == -1) c = Green;
          }
