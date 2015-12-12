@@ -128,17 +128,19 @@ int start()
          double price = High[i] * 1.001; 
          double a1 = avg(HistogramBuffer, i, 5);
          double a2 = avg(HistogramBuffer, i-5, 5);
-         int t = trend(i);
+         //int t = trend(i);
          if( a1 < 0 && a2 > MACDOpenLevel*Point)  //buy
          {
             s = 233;
-            if( t == 1) c = Red;
+            //if( t == 1) 
+            c = Red;
             price  = Low[i]*0.999;
             signal = 0;
          }
          if( a1 > 0 && a2 < -MACDOpenLevel*Point ){  //sell
             signal = 1;
-            if(t == -1) c = Green;
+            //if(t == -1) 
+            c = Green;
          }
          if( signal == -1 && MathAbs(ExtMacdBuffer[i]- MACDLineBuffer[i]) < 0.01 && MathAbs(ExtMacdBuffer[i-5]- MACDLineBuffer[i-5]) > MACDOpenLevel*Point){
             if( ExtMacdBuffer[i+1] >= MACDLineBuffer[i] && ExtMacdBuffer[i] <= MACDLineBuffer[i-1] && SignalLineBuffer[i-5] >= ExtMacdBuffer[i-5]) //buy
@@ -194,7 +196,7 @@ double avg(double& aaa[], int start, int calPeriod)
    }
    return(a / calPeriod);
 }
-
+/*
 int trend(int i)
 {
    roc1 = iCustom(Symbol(),0,"roc2_vg", Roc1, Roc2, 0, 0, 0, i);
@@ -202,3 +204,4 @@ int trend(int i)
    if( roc1 < roc2) return -1;
    else return 1;
 }
+*/
