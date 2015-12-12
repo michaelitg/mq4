@@ -7,11 +7,12 @@
 #property link      "mailto:michaelitg@outlook.com"
 
 #property indicator_separate_window
-#property indicator_buffers 4
+#property indicator_buffers 5
 #property indicator_color1 Blue
 #property indicator_color2 Red
 #property indicator_color3 Green
 #property indicator_color4 Black
+#property indicator_color5 Lime
 
 #include <MovingAverages.mqh>
 
@@ -19,8 +20,9 @@
 extern int       FastMAPeriod=60;
 extern int       SlowMAPeriod=130;
 extern int       SignalMAPeriod=45;
-extern int       Roc1 = 160;
+extern int       Roc1 = 160;  //for fast current, use 80/140
 extern int       Roc2 = 280;
+extern double    MACDOpenLevel = 3;
 
 datetime alarmtime = 0;
 
@@ -29,7 +31,8 @@ double MACDLineBuffer[];
 double SignalLineBuffer[];
 double HistogramBuffer[];
 //---- slow buffers
-double    ExtMacdBuffer[];
+double ExtMacdBuffer[];
+double SignalBuffer[];
 //double    ExtSignalBuffer[20000];
 //---- variables
 double alpha = 0;
@@ -54,6 +57,9 @@ int init()
    SetIndexStyle(3,DRAW_LINE);
    SetIndexBuffer(3,ExtMacdBuffer);
    SetIndexDrawBegin(3,SlowMAPeriod*2);
+   SetIndexStyle(4,DRAW_LINE);
+   SetIndexBuffer(4,SignalBuffer);
+   SetIndexDrawBegin(4,SlowMAPeriod);
    //---- name for DataWindow and indicator subwindow label
    IndicatorShortName("MACD2Line0.1("+FastMAPeriod+","+SlowMAPeriod+","+SignalMAPeriod+")");
    SetIndexLabel(0,"MACD");
@@ -80,6 +86,7 @@ int deinit()
       if( StringFind(name, "macd2line_") >= 0){
           //Print("Delete...",name);
           ObjectDelete(0, name);
+          i--;
       } 
      } 
    //----
@@ -90,13 +97,15 @@ int deinit()
 //+------------------------------------------------------------------+
 int start()
 {
-   int limit;
+   int limit,signal;
    int counted_bars = IndicatorCounted();
    //---- check for possible errors
    if (counted_bars<0) return(-1);
    //---- last counted bar will be recounted
    if (counted_bars>0) counted_bars--;
    limit = Bars - counted_bars;
+   //if( limit < 1000) limit = 1000;
+   limit = Bars;
 
    for(int i=limit; i>=0; i--)
    {
@@ -110,15 +119,14 @@ int start()
                     iMA(NULL,0,SlowMAPeriod*2,0,MODE_EMA,PRICE_CLOSE,i);
    //--- signal line counted in the 2-nd buffer
    //SimpleMAOnBuffer(Bars, counted_bars,0,SignalMAPeriod*2,ExtMacdBuffer,ExtSignalBuffer);
-   
    for(i=limit; i>=5; i--)
    {
-      if( MathAbs(HistogramBuffer[i]) < 0.01 || MathAbs(ExtMacdBuffer[i]-MACDLineBuffer[i]) < 0.01)
+      signal = -1;
+      if( (MathAbs(HistogramBuffer[i]) < 0.01 || MathAbs(ExtMacdBuffer[i]-MACDLineBuffer[i]) < 0.01))
       {
          int s = 234; 
          int c = Yellow;
          double price = High[i] * 1.001; 
-         bool signal = false;
          double a1 = avg(HistogramBuffer, i, 5);
          double a2 = avg(HistogramBuffer, i-5, 5);
          int t = trend(i);
@@ -127,37 +135,47 @@ int start()
             s = 233;
             if( t == 1) c = Red;
             price  = Low[i]*0.999;
-            signal = true;
+            signal = 0;
          }
          if( a1 > 0 && a2 < 0 ){  //sell
-            signal = true;
+            signal = 1;
             if(t == -1) c = Green;
          }
-         if( signal == false && MathAbs(ExtMacdBuffer[i]-MACDLineBuffer[i]) < 0.01){
+         if( signal == -1 && MathAbs(ExtMacdBuffer[i]- MACDLineBuffer[i]) < 0.01 && MathAbs(ExtMacdBuffer[i-5]- MACDLineBuffer[i-5]) > MACDOpenLevel*Point){
             if( (ExtMacdBuffer[i+1] >= MACDLineBuffer[i] && ExtMacdBuffer[i] <= MACDLineBuffer[i-1])) //buy
             {
-               signal = true;
+               signal = 0;
                price  = Low[i]*0.999;
                s = 233;
                c = Brown;
             }
             if(ExtMacdBuffer[i+1] <= MACDLineBuffer[i] && ExtMacdBuffer[i] >= MACDLineBuffer[i-1]) //sell
               {
-                  signal = true;
+                  signal = 1;
                   c = Lime;
               }
          }
-         if( signal)
+         string name = "macd2line_"+ TimeToStr(Time[i],TIME_DATE)+StringSubstr(TimeToStr(Time[i], TIME_MINUTES),0,2);
+         if( signal != -1)
          {
             int chart_ID = 0;
-            string name = "macd2line_"+ TimeToStr(Time[i],TIME_DATE)+StringSubstr(TimeToStr(Time[i], TIME_MINUTES),0,2);
-            ObjectCreate(chart_ID, name, OBJ_ARROW, 0, Time[i], price);
-            ObjectSet(name,OBJPROP_ARROWCODE,s);
-            ObjectSetInteger(chart_ID,name,OBJPROP_COLOR, c); 
-            ObjectSet(name,OBJPROP_WIDTH,2);
-            //Print("Macd2Line: ",name, " a1=",a1," a2=",a2," t=",t,"macdm=",iCustom(Symbol(),0,"MACD2", 120, 260, 90, 0, i),"macds=",iCustom(Symbol(),0,"MACD2", 120, 260, 90, 1, i));
-            if( StringFind(Symbol(), "AUDUSD") >= 0 ) Print("Macd2Line: ",name, " a1=",a1," a2=",a2," s=",s,"t=",t," [",ExtMacdBuffer[i],"]--[",SignalLineBuffer[i],"roc=",roc1,"...",roc2);
+            if( ObjectCreate(chart_ID, name, OBJ_ARROW, 0, Time[i], price) )
+            {
+               ObjectSet(name,OBJPROP_ARROWCODE,s);
+               ObjectSetInteger(chart_ID,name,OBJPROP_COLOR, c); 
+               ObjectSet(name,OBJPROP_WIDTH,2);
+               //Print("Macd2Line: ",name, " a1=",a1," a2=",a2," t=",t,"macdm=",iCustom(Symbol(),0,"MACD2", 120, 260, 90, 0, i),"macds=",iCustom(Symbol(),0,"MACD2", 120, 260, 90, 1, i));
+               //if( StringFind(Symbol(), "AUDUSD") >= 0 ) Print("Macd2Line: ",name, " a1=",a1," a2=",a2," s=",s,"t=",t," [",ExtMacdBuffer[i],"]--[",SignalLineBuffer[i],"roc=",roc1,"...",roc2);
+            }
          }
+         
+         if( ObjectFind(0, name) >= 0 ){
+            if( ObjectGet(name, OBJPROP_COLOR) == Yellow) SignalBuffer[i] = -2*Point*100;
+            else if( ObjectGet(name,OBJPROP_ARROWCODE) == 233) SignalBuffer[i] = 0;
+            else SignalBuffer[i] = Point*100;
+         }
+         else 
+            SignalBuffer[i] = signal*Point*100;
       }
    }
    
