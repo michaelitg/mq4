@@ -21,9 +21,7 @@
 extern int       FastMAPeriod=60;
 extern int       SlowMAPeriod=130;
 extern int       SignalMAPeriod=45;
-extern int       Roc1 = 160;  //for fast current, use 80/140
-extern int       Roc2 = 280;
-extern double    MACDOpenLevel = 3;
+extern double    MACDOpenLevel = 9;
 
 datetime alarmtime = 0;
 
