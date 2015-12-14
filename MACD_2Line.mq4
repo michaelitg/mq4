@@ -193,7 +193,11 @@ int start()
                   c = Lime;
               }
          }
-         
+         if( signal == -1)
+         {
+            //if( TrendBuffer[i] > 0 && MACDLineBuffer[i+1] < 0 && MACDLineBuffer[i] >= 0){ c = Red; s = 233; signal = 0;}
+            //if( TrendBuffer[i] < 0 && MACDLineBuffer[i+1] > 0 && MACDLineBuffer[i] <= 0) { c = Green; signal = 1; }
+         }
          string name = "macd2line_"+ TimeToStr(Time[i],TIME_DATE)+StringSubstr(TimeToStr(Time[i], TIME_MINUTES),0,2);
          if( signal != -1)
          {
