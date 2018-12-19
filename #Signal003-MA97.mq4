@@ -16,30 +16,31 @@
 #include <common.mqh>
 
 //---- indicator parameters
-extern int MA_Period    =99;   //ma 
-extern double TakeProfit = 150;
-extern double StopLoss = 170;
-extern double AddRate = 0.4;   //Add Plan mark position
+extern int MA_Period    = 800;   //ma
+extern double TakeProfit = 550;
+extern double StopLoss = 160;
+extern double AddRate = 0.2;   //Add Plan mark position
 extern int MA1_Period    = 48;   //ma 
 extern int MA2_Period    = 96;   //ma 
 extern int MA3_Period    = 240;   //ma setting
 extern double TakeProfit1 = 100;
 extern double StopLoss1 = 100;
-extern double updownLevel = 0.3;
 extern int autoTrendTrade = 0;
+extern double updownLevel = 11;
+extern int    updowncount = 3;
 extern int    shortma = 7;
 extern int    shortmashift = 3;
 extern double trendLevel = 2.2;
 double point;
 
-   bool IsAlerted = false;
+bool IsAlerted = false;
 //---- indicator buffers
 double     buyBuffer[];
 double     sellBuffer[];
 double     tkBuffer[];
 double     slBuffer[];
 double     addBuffer[];
-double p;
+
 datetime ptime3 = 0;
 datetime ptime4 = 0;
 //+------------------------------------------------------------------+
@@ -67,34 +68,30 @@ IndicatorShortName("MA97 Signal");
 return (0);
   }
 
-void calc(int s)
+bool isUp(int pd)
 {
-   p = iMA(NULL,0,MA_Period,0,MODE_SMA,PRICE_CLOSE, s);
-}
+   double p;
+   p = iMA(NULL,0, pd,0,MODE_SMA,PRICE_CLOSE, 0);
 
-bool isUp(int s)
-{
-
-   for( int i = 0; i < 3; i++)
+   for( int i = 0; i < updowncount; i++)
    {
-      if(Close[i+s] < p - 0.0001) break;  
+      //double t = Open[i];
+      //if( t < Close[i]) t = Close[i];
+      //if( High[i] - t > factor*MathAbs(Open[i] - Close[i])) break;
+      if(Close[i] <= p ) break;
+      //test if(Close[i+1] <= p ) break;
+      //if(Close[i] < p + 0.1) break;
    }
-   /*
-   if( StringFind(TimeToStr(Time[s], TIME_DATE|TIME_MINUTES), "2013.08.02 12") >= 0) 
+   if( i == updowncount)
    {
-     Print("isUp ======",pd,"-",s,"--i=--",i,"---MA--",p,"-Close--",Close[s],"-",Close[s+1],"-",Close[s+2],"-",Close[s+3],"@",TimeToStr(Time[s],TIME_DATE|TIME_MINUTES));
-   }
-   */
-   if( i == 3)
-   { 
-     //if(Close[i+s] < p) return(true);  //org version
-     if(Close[i+s] < p && Close[s] > p + updownLevel)
+     if(Close[i] < p && Close[0] > p + updownLevel)
+     //test if(Close[i+1] < p && Close[0+1] > p + updownLevel)
      {
-                //·ÉÎÇÐÐÇé¹ýÂË
+          //é£žå»è¡Œæƒ…è¿‡æ»¤
          if( shortma > 0)
          {
-            double ss = iMA(NULL,0, shortma,0,MODE_SMA,PRICE_CLOSE, s+shortmashift);
-            if( ss > p ){
+            double s = iMA(NULL,0, shortma,0,MODE_SMA,PRICE_CLOSE, shortmashift);
+            if( s > p ){
                if( TimeCurrent() - ptime3 > 360)
                {
                   ptime3 = TimeCurrent();
@@ -103,39 +100,55 @@ bool isUp(int s)
                return(false);
             }
          }
-         return(true);  //add updownLevel
+
+         return(true);
      }
-   }
+  }
+     //if( Day() == 17 && TimeCurrent() - dp3 > 360){
+     //       dp3 = TimeCurrent();
+      //      Print("==================i=",i,"p=",p,"c0=",Close[0],"ci=",Close[i]);
+     //}
+
    return(false);
 }
 
-bool isDown(int s)
+bool isDown(int pd)
 {
-   for( int i = 0; i < 3; i++)
+   double p;
+   p = iMA(NULL,0,pd,0,MODE_SMA,PRICE_CLOSE, 0);
+
+   for( int i = 0; i < updowncount; i++)
    {
-      if(Close[i+s] > p + 0.0001) break;  
+      //double t = Open[i];
+      //if( t > Close[i]) t = Close[i];
+      //if( t - Low[i] > factor*MathAbs(Open[i] - Close[i])) break;
+      if(Close[i] >= p ) break;
+      //test if(Close[i+1] >= p ) break;
+      //if(Close[i] > p - 0.1) break;
    }
-   if( i == 3)
+   if( i == updowncount)
    {
-     //if(Close[i+s] > p) return(true);  //org version 
-     if(Close[i+s] > p && Close[s] < p - updownLevel)
+     if(Close[i] > p && Close[0] < p - updownLevel)
+     //test if(Close[i+1] > p && Close[0+1] < p - updownLevel)
      {
-              //·ÉÎÇÐÐÇé¹ýÂË
+
+         //é£žå»è¡Œæƒ…è¿‡æ»¤
          if( shortma > 0)
          {
-            double ss = iMA(NULL,0, shortma,0,MODE_SMA,PRICE_CLOSE, s+shortmashift);
-            if( ss < p ){
+            double s = iMA(NULL,0, shortma,0,MODE_SMA,PRICE_CLOSE, shortmashift);
+            if( s < p ){
                if( TimeCurrent() - ptime4 > 360)
                {
                   ptime4 = TimeCurrent();
                   Print("xxxxxxxshortma skip this Down signal @",TimeToStr(TimeCurrent(), TIME_DATE | TIME_MINUTES));
                }
                return(false);
-            }    
+            }
          }
-         return(true);  //add updownLevel
+         return(true);
       }
    }
+
    return(false);
 }
 
@@ -145,7 +158,6 @@ bool isDown(int s)
 int start()
   {
    int limit;
-   int oType;
    int counted_bars=IndicatorCounted();
 //---- last counted bar will be recounted
    if(counted_bars>0) counted_bars--;
@@ -154,7 +166,7 @@ int start()
    point=getPoint();
 
       //if( Period() == 15) p = 60;
-      //if( Period() <= 30) p = 240;  //2013/10/8 XAUµÄ30·ÖÖÓÐÅºÅ±ØÐë·þ´Ó4Ð¡Ê±¾ùÏßÅÅÁÐ
+      //if( Period() <= 30) p = 240;  //2013/10/8 XAUï¿½ï¿½30ï¿½ï¿½ï¿½ï¿½ï¿½ÅºÅ±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½4Ð¡Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
       
 //---- macd counted in the 1-st buffer
    //limit = 100;
@@ -165,11 +177,11 @@ int start()
       if( tkBuffer[i+1] != EMPTY_VALUE) tkBuffer[i] = tkBuffer[i+1];
       if( slBuffer[i+1] != EMPTY_VALUE) slBuffer[i] = slBuffer[i+1];
       if( addBuffer[i+1] != EMPTY_VALUE) addBuffer[i] = addBuffer[i+1];
-      calc(i);
-      double trend;
-      trend = iCustom(NULL, 0, "#Signal006-myATRTrend", 30,12,24, trendLevel, 0, i);
-      //if( i >= 50 && i <= 70) Print("MA97: i=",i,"time=",TimeToStr(Time[i]),"trend=",trend);
-      if( trend != EMPTY_VALUE)
+
+      //double trend;
+      //trend = iCustom(NULL, 0, "#Signal006-myATRTrend", 30,12,24, trendLevel, 0, i);
+      //if( trend != EMPTY_VALUE)
+      if( true )
       {
                if (isUp(i)) {
                   buyBuffer[i] = Low[i] - 5*point;
@@ -212,7 +224,7 @@ int start()
 
      if ( (buyBuffer[0] != EMPTY_VALUE || sellBuffer[0] != EMPTY_VALUE ) && !IsAlerted) 
      {
-               Alert("MA97: ", Symbol(), Period(),"·ÖÖÓ", "buy", buyBuffer[0], "sell",sellBuffer[0]);
+               Alert("MA97: ", Symbol(), Period(),"new order", "buy", buyBuffer[0], "sell",sellBuffer[0]);
                IsAlerted = true;
      }
      if ( !(buyBuffer[0] == EMPTY_VALUE || sellBuffer[0] == EMPTY_VALUE ) && IsAlerted) 
@@ -224,9 +236,3 @@ int start()
    return(0);
   }
  
-  
-  int deinit()
-  {
-  }
- 
-
