@@ -8,8 +8,8 @@
 #property indicator_chart_window
 #property indicator_buffers 5
 #property indicator_color1 Blue
-#property indicator_color2 Yellow
-#property indicator_color3 Blue
+#property indicator_color2 Red
+#property indicator_color3 Pink
 #property indicator_color4 Red
 #property indicator_color5 Lime
 
@@ -55,25 +55,25 @@ SetIndexBuffer(0, buyBuffer);
 SetIndexStyle(1, DRAW_ARROW, DRAW_ARROW,2);
 SetIndexArrow(1, 234); //242
 SetIndexBuffer(1, sellBuffer);
-SetIndexStyle(2, DRAW_ARROW, DRAW_ARROW,2);
+SetIndexStyle(2, DRAW_ARROW, DRAW_ARROW,1);
 SetIndexArrow(2, 108); //242
 SetIndexBuffer(2, tkBuffer);
-SetIndexStyle(3, DRAW_ARROW, DRAW_ARROW,2);
+SetIndexStyle(3, DRAW_ARROW, DRAW_ARROW,1);
 SetIndexArrow(3, 108); //242
 SetIndexBuffer(3, slBuffer);
-SetIndexStyle(4, DRAW_ARROW, DRAW_ARROW,2);
+SetIndexStyle(4, DRAW_ARROW, DRAW_ARROW,1);
 SetIndexArrow(4, 108); //242
 SetIndexBuffer(4, addBuffer);
 IndicatorShortName("MA97 Signal");
 return (0);
   }
 
-bool isUp(int pd)
+bool isUp(int index)
 {
    double p;
-   p = iMA(NULL,0, pd,0,MODE_SMA,PRICE_CLOSE, 0);
+   p = iMA(NULL,0, MA_Period,index,MODE_SMA,PRICE_CLOSE, 0);
 
-   for( int i = 0; i < updowncount; i++)
+   for( int i = index; i < index+updowncount; i++)
    {
       //double t = Open[i];
       //if( t < Close[i]) t = Close[i];
@@ -82,20 +82,20 @@ bool isUp(int pd)
       //test if(Close[i+1] <= p ) break;
       //if(Close[i] < p + 0.1) break;
    }
-   if( i == updowncount)
+   if( i == index+updowncount)
    {
-     if(Close[i] < p && Close[0] > p + updownLevel)
+     if(Close[i] < p && Close[index] > p + updownLevel)
      //test if(Close[i+1] < p && Close[0+1] > p + updownLevel)
      {
           //飞吻行情过滤
          if( shortma > 0)
          {
-            double s = iMA(NULL,0, shortma,0,MODE_SMA,PRICE_CLOSE, shortmashift);
+            double s = iMA(NULL,0, shortma,index,MODE_SMA,PRICE_CLOSE, shortmashift);
             if( s > p ){
                if( TimeCurrent() - ptime3 > 360)
                {
                   ptime3 = TimeCurrent();
-                  Print("xxxxxxxshortma skip this Up signal @",TimeToStr(TimeCurrent(), TIME_DATE | TIME_MINUTES));
+                  Print("xxxxxxxshortma skip this Up signal @",TimeToStr(Time[index], TIME_DATE | TIME_MINUTES));
                }
                return(false);
             }
@@ -112,12 +112,12 @@ bool isUp(int pd)
    return(false);
 }
 
-bool isDown(int pd)
+bool isDown(int index)
 {
    double p;
-   p = iMA(NULL,0,pd,0,MODE_SMA,PRICE_CLOSE, 0);
+   p = iMA(NULL,0,MA_Period,index,MODE_SMA,PRICE_CLOSE, 0);
 
-   for( int i = 0; i < updowncount; i++)
+   for( int i = index; i < index+updowncount; i++)
    {
       //double t = Open[i];
       //if( t > Close[i]) t = Close[i];
@@ -126,21 +126,21 @@ bool isDown(int pd)
       //test if(Close[i+1] >= p ) break;
       //if(Close[i] > p - 0.1) break;
    }
-   if( i == updowncount)
+   if( i == index+updowncount)
    {
-     if(Close[i] > p && Close[0] < p - updownLevel)
+     if(Close[i] > p && Close[index] < p - updownLevel)
      //test if(Close[i+1] > p && Close[0+1] < p - updownLevel)
      {
 
          //飞吻行情过滤
          if( shortma > 0)
          {
-            double s = iMA(NULL,0, shortma,0,MODE_SMA,PRICE_CLOSE, shortmashift);
+            double s = iMA(NULL,0, shortma,index,MODE_SMA,PRICE_CLOSE, shortmashift);
             if( s < p ){
                if( TimeCurrent() - ptime4 > 360)
                {
                   ptime4 = TimeCurrent();
-                  Print("xxxxxxxshortma skip this Down signal @",TimeToStr(TimeCurrent(), TIME_DATE | TIME_MINUTES));
+                  Print("xxxxxxxshortma skip this Down signal @",TimeToStr(Time[index], TIME_DATE | TIME_MINUTES));
                }
                return(false);
             }
@@ -188,12 +188,14 @@ int start()
                   tkBuffer[i] = Close[i] + TakeProfit*point;
                   slBuffer[i] = Close[i] - StopLoss*point;
                   addBuffer[i] = Close[i] + AddRate * TakeProfit*point;
+                  //Print(i," buy signal: ",buyBuffer[i]);
                }
                else if (isDown(i)) {
                   sellBuffer[i] = High[i] + 5*point;
                   tkBuffer[i] = Close[i] - TakeProfit*point;
                   slBuffer[i] = Close[i] + StopLoss*point;
                   addBuffer[i] = Close[i] - AddRate*TakeProfit*point;
+                  //Print(i," sell signal: ",sellBuffer[i]);
                }
        }
        else if(autoTrendTrade == 1){
@@ -221,17 +223,17 @@ int start()
    }
    
 //---- done
-
+    /*
      if ( (buyBuffer[0] != EMPTY_VALUE || sellBuffer[0] != EMPTY_VALUE ) && !IsAlerted) 
      {
-               Alert("MA97: ", Symbol(), Period(),"new order", "buy", buyBuffer[0], "sell",sellBuffer[0]);
+               //Alert("MA97: ", Symbol(), Period(),"new order", "buy", buyBuffer[0], "sell",sellBuffer[0]);
                IsAlerted = true;
      }
      if ( !(buyBuffer[0] == EMPTY_VALUE || sellBuffer[0] == EMPTY_VALUE ) && IsAlerted) 
      {
                IsAlerted = false;
      }
-     
+     */
  
    return(0);
   }
