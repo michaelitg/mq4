@@ -16,10 +16,10 @@
 #include <common.mqh>
 
 //---- indicator parameters
-extern int MA_Period    = 800;   //ma
-extern double TakeProfit = 550;
-extern double StopLoss = 160;
-extern double AddRate = 0.2;   //Add Plan mark position
+extern int MA_Period    = 500;   //ma
+extern double TakeProfit = 700;
+extern double StopLoss = 200;
+extern double AddRate = 0.1;   //Add Plan mark position
 extern int MA1_Period    = 48;   //ma 
 extern int MA2_Period    = 96;   //ma 
 extern int MA3_Period    = 240;   //ma setting
@@ -162,6 +162,7 @@ int start()
 //---- last counted bar will be recounted
    if(counted_bars>0) counted_bars--;
    limit=Bars-counted_bars;
+   limit=3000;
 //---- macd counted in the 1-st buffer
    point=getPoint();
 
