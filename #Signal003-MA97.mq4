@@ -6,7 +6,7 @@
 #property  copyright "Copyright 2013 michael."
 //---- indicator settings
 #property indicator_chart_window
-#property indicator_buffers 5
+#property indicator_buffers 6
 #property indicator_color1 Blue
 #property indicator_color2 Red
 #property indicator_color3 Pink
@@ -20,18 +20,21 @@ extern int MA_Period    = 500;   //ma
 extern double TakeProfit = 700;
 extern double StopLoss = 200;
 extern double AddRate = 0.1;   //Add Plan mark position
-extern int MA1_Period    = 48;   //ma 
-extern int MA2_Period    = 96;   //ma 
-extern int MA3_Period    = 240;   //ma setting
-extern double TakeProfit1 = 100;
-extern double StopLoss1 = 100;
-extern int autoTrendTrade = 0;
 extern double updownLevel = 11;
 extern int    updowncount = 3;
 extern int    shortma = 7;
 extern int    shortmashift = 3;
-extern double trendLevel = 2.2;
+extern int    cbars = 300;
+double trendLevel = 2.2;
+int autoTrendTrade = 0;
+int MA1_Period    = 48;   //ma 
+int MA2_Period    = 96;   //ma 
+int MA3_Period    = 240;   //ma setting
+double TakeProfit1 = 100;
+double StopLoss1 = 100;
 double point;
+double maValue1 = 0;
+double maValue2 = 0;
 
 bool IsAlerted = false;
 //---- indicator buffers
@@ -40,9 +43,11 @@ double     sellBuffer[];
 double     tkBuffer[];
 double     slBuffer[];
 double     addBuffer[];
+double     signalBuffer[];
 
 datetime ptime3 = 0;
 datetime ptime4 = 0;
+
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
@@ -64,14 +69,15 @@ SetIndexBuffer(3, slBuffer);
 SetIndexStyle(4, DRAW_ARROW, DRAW_ARROW,1);
 SetIndexArrow(4, 108); //242
 SetIndexBuffer(4, addBuffer);
+SetIndexStyle(5, DRAW_NONE);
+SetIndexBuffer(5, signalBuffer);
 IndicatorShortName("MA97 Signal");
 return (0);
   }
 
 bool isUp(int index)
 {
-   double p;
-   p = iMA(NULL,0, MA_Period,index,MODE_SMA,PRICE_CLOSE, 0);
+   double p = maValue1;
 
    for( int i = index; i < index+updowncount; i++)
    {
@@ -90,7 +96,7 @@ bool isUp(int index)
           //飞吻行情过滤
          if( shortma > 0)
          {
-            double s = iMA(NULL,0, shortma,index,MODE_SMA,PRICE_CLOSE, shortmashift);
+            double s = maValue2;
             if( s > p ){
                if( TimeCurrent() - ptime3 > 360)
                {
@@ -114,8 +120,7 @@ bool isUp(int index)
 
 bool isDown(int index)
 {
-   double p;
-   p = iMA(NULL,0,MA_Period,index,MODE_SMA,PRICE_CLOSE, 0);
+   double p = maValue1;
 
    for( int i = index; i < index+updowncount; i++)
    {
@@ -135,7 +140,7 @@ bool isDown(int index)
          //飞吻行情过滤
          if( shortma > 0)
          {
-            double s = iMA(NULL,0, shortma,index,MODE_SMA,PRICE_CLOSE, shortmashift);
+            double s = maValue2;
             if( s < p ){
                if( TimeCurrent() - ptime4 > 360)
                {
@@ -162,7 +167,7 @@ int start()
 //---- last counted bar will be recounted
    if(counted_bars>0) counted_bars--;
    limit=Bars-counted_bars;
-   limit=3000;
+   limit=cbars;
 //---- macd counted in the 1-st buffer
    point=getPoint();
 
@@ -175,6 +180,7 @@ int start()
    {
       buyBuffer[i] = EMPTY_VALUE;
       sellBuffer[i] = EMPTY_VALUE;
+      signalBuffer[i] = EMPTY_VALUE;
       if( tkBuffer[i+1] != EMPTY_VALUE) tkBuffer[i] = tkBuffer[i+1];
       if( slBuffer[i+1] != EMPTY_VALUE) slBuffer[i] = slBuffer[i+1];
       if( addBuffer[i+1] != EMPTY_VALUE) addBuffer[i] = addBuffer[i+1];
@@ -184,11 +190,14 @@ int start()
       //if( trend != EMPTY_VALUE)
       if( true )
       {
+               maValue1 = iMA(NULL,0, MA_Period,i,MODE_SMA,PRICE_CLOSE, 0);
+               maValue2 = iMA(NULL,0, shortma,i,MODE_SMA,PRICE_CLOSE, shortmashift);
                if (isUp(i)) {
                   buyBuffer[i] = Low[i] - 5*point;
                   tkBuffer[i] = Close[i] + TakeProfit*point;
                   slBuffer[i] = Close[i] - StopLoss*point;
                   addBuffer[i] = Close[i] + AddRate * TakeProfit*point;
+                  signalBuffer[i] = 0;
                   //Print(i," buy signal: ",buyBuffer[i]);
                }
                else if (isDown(i)) {
@@ -196,6 +205,7 @@ int start()
                   tkBuffer[i] = Close[i] - TakeProfit*point;
                   slBuffer[i] = Close[i] + StopLoss*point;
                   addBuffer[i] = Close[i] - AddRate*TakeProfit*point;
+                  signalBuffer[i] = 1;
                   //Print(i," sell signal: ",sellBuffer[i]);
                }
        }
