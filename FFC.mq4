@@ -126,7 +126,7 @@ extern bool    ReportActive      = false;                // Report for active ch
 extern bool    IncludeHigh       = true;                 // Include high
 extern bool    IncludeMedium     = false;                 // Include medium
 extern bool    IncludeLow        = false;                 // Include low
-extern bool    IncludeSpeaks     = false;                 // Include speaks
+extern bool    IncludeSpeaks     = true;                 // Include speaks
 extern bool    IncludeHolidays   = false;                // Include holidays
 extern string  FindKeyword       = "";                   // Find keyword
 extern string  IgnoreKeyword     = "";                   // Ignore keyword
@@ -501,13 +501,13 @@ void DrawEvents()
    if(ShowPanel && ShowPanelBG)
      {
       eToolTip="Hover on the Event!";
-      Draw("BG","gggg",85,"Webdings",Pbgc,Corner,x0,3,eToolTip);
-      Draw("Date",DayToStr(Midnight)+", "+MonthToStr()+" "+(string)TimeDay(Midnight),FontSize+1,"Arial Black",TitleColor,Corner,x2,95,"Today");
-      Draw("Title",PanelTitle,FontSize,FontName,TitleColor,Corner,x1,95,"Panel Title");
-      Draw("Spreator","------",10,"Arial",RemarksColor,Corner,x2,83,eToolTip);
+      Draw("BG","gggg",105,"Webdings",Pbgc,Corner,x0,3,eToolTip);
+      Draw("Date",DayToStr(Midnight)+", "+MonthToStr()+" "+(string)TimeDay(Midnight),FontSize+1,"Arial Black",TitleColor,Corner,x2,110,"Today");
+      Draw("Title",PanelTitle,FontSize,FontName,TitleColor,Corner,x1,110,"Panel Title");
+      Draw("Spreator","------",10,"Arial",RemarksColor,Corner,x2,98,eToolTip);
      }
 //--- draw objects / alert functions
-   for(int i=0; i<5; i++)
+   for(int i=0; i<6; i++)
      {
       eToolTip=eTitle[i]+"\nCurrency: "+eCountry[i]+"\nTime left: "+(string)eMinutes[i]+" Minutes"+"\nImpact: "+eImpact[i];
       //--- impact color
@@ -527,12 +527,12 @@ void DrawEvents()
               DayToStr(eTime[i])+"  |  "+
               TimeToStr(eTime[i],TIME_MINUTES)+"  |  "+
               eCountry[i]+"  |  "+
-              eTitle[i],FontSize,FontName,EventColor,Corner,x2,70-i*15,eToolTip);
+              eTitle[i],FontSize,FontName,EventColor,Corner,x2,85-i*15,eToolTip);
          //--- forecast
-         Draw("Event Forecast "+(string)i,"[ "+eForecast[i]+" ]",FontSize,FontName,ForecastColor,Corner,xf,70-i*15,
+         Draw("Event Forecast "+(string)i,"[ "+eForecast[i]+" ]",FontSize,FontName,ForecastColor,Corner,xf,85-i*15,
               "Forecast: "+eForecast[i]);
          //--- previous
-         Draw("Event Previous "+(string)i,"[ "+ePrevious[i]+" ]",FontSize,FontName,PreviousColor,Corner,xp,70-i*15,
+         Draw("Event Previous "+(string)i,"[ "+ePrevious[i]+" ]",FontSize,FontName,PreviousColor,Corner,xp,85-i*15,
               "Previous: "+ePrevious[i]);
         }
       //--- vertical news
@@ -558,7 +558,7 @@ void DrawEvents()
       //--- break if no more data
       if(eTitle[i]==eTitle[i+1])
         {
-         Draw(INAME+" no more events","NO MORE EVENTS",8,"Arial",RemarksColor,Corner,x2,50-i*15,"Get some rest!");
+         Draw(INAME+" no more events","NO MORE EVENTS",8,"Arial",RemarksColor,Corner,x2,65-i*15,"Get some rest!");
          break;
         }
      }
