@@ -107,6 +107,10 @@ iCustom(
 #property strict
 #property indicator_chart_window
 #property indicator_buffers 2
+
+#include <clock.mqh>
+#include <common.mqh>
+
 //--- to download the xml
 #import "urlmon.dll"
 int URLDownloadToFileW(int pCaller,string szURL,string szFileName,int dwReserved,int Callback);
@@ -178,8 +182,61 @@ extern bool    SoundAlerts       = true;                 // Sound Alerts
 extern string  AlertSoundFile    = "news.wav";           // Sound file name
 extern bool    EmailAlerts       = false;                // Send email
 extern bool    NotificationAlerts= false;                // Send push notification
+//---------------------------------------------------
+//---- input parameters clock
+int           Clockcorner=0;
+extern string input_parameters = "for the clock";
+extern int       godown=0;
+extern int       goright=0;
+//Colors clock
+extern color     labelColor=DarkSlateGray;
+extern color     clockColor=DarkSlateGray;
+extern color     ClockMktOpenColor=Red;
+extern color     ClockMktHolidayClr=PaleTurquoise;// Blue;
+bool     show12HourTime=false; //YOU CAN CHANGE IT BUT I LIKE THIS MORE
+bool      ShowSpreadChart=true;
+bool      ShowBarTime=true;
+bool      ShowLocal=true;
+bool      ShowBroker=true;
+bool      ShowGMT=true;
+//FOUND THE TIMES WHEN THE MARKETS WERE OPEN AT
+//World Financial Markets   http://www.2011.worldmarkethours.com/Forex/index1024.htm
+bool      Show_NEW_ZEALAND=false;//Auckland GMT+12
+bool      Show_AUSTRALIA=true;//Sydney GMT+12
+bool      Show_JAPAN=true;//Tokyo GMT+9
+bool      Show_HONG_KONG=false;//    GMT+8
+bool      Show_EUROPE=true;//Frankfurt GMT+1
+bool      Show_LONDON=true;//GMT+0
+bool      Show_NEW_YORK=true;//GMT-5
 //------------------------------------------------------------------------------------------------------------
 //--------------------------------------------- INTERNAL VARIABLE --------------------------------------------
+//---clock
+color  session_upcoming_title_color = Purple;
+color  session_closing_color = Red;
+datetime NZDHoliday =0;
+datetime AUDHoliday =0;
+datetime JPYHoliday =0;
+datetime CNYHoliday =0;
+datetime EURHoliday =0;
+datetime GBPHoliday =0;
+datetime USDHoliday =0; 
+
+#import "kernel32.dll"
+
+void GetLocalTime(int& TimeArray[]);
+void GetSystemTime(int& TimeArray[]);
+int  GetTimeZoneInformation(int& TZInfoArray[]);
+#import
+//---- buffers
+int LondonTZ = 0;
+int TokyoTZ = 9;
+int NewYorkTZ = -5;
+int SydneyTZ = 11;
+int BerlinTZ = 1;
+int AucklandTZ = 13;
+int HongKongTZ = 8;
+datetime newyork,london,frankfurt,tokyo,sydney,auckland,hongkong,GMT;
+
 //--- Vars and arrays
 string xmlFileName;
 string sData;
@@ -204,6 +261,80 @@ bool IsEvent;
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
+void initClock()
+{
+   int top = godown+20;
+   int left2 = 70+goright;
+   int left =left2;
+   if (show12HourTime) left = left2-20;
+
+   if (ShowLocal) 
+   {
+      ObjectMakeLabel(Clockcorner,"locl", left2, top);
+      ObjectMakeLabel(Clockcorner,"loct", left-45, top);
+      top += 15;
+   }
+   if (ShowBroker)
+   {
+      ObjectMakeLabel(Clockcorner,"brol", left2, top);
+      ObjectMakeLabel(Clockcorner,"brot", left-45, top);
+      top += 15;
+   }
+   if (ShowGMT)
+   {       
+      ObjectMakeLabel(Clockcorner,"gmtl", left2, top);
+      ObjectMakeLabel(Clockcorner,"gmtt", left-45, top);
+      top += 15;
+   }
+   top += 5;
+   if (Show_NEW_ZEALAND)
+   {
+      ObjectMakeLabel(Clockcorner,"NZDl", left2, top);
+      ObjectMakeLabel(Clockcorner,"NZDt", left-45, top);
+      top += 15;      
+   }
+   if (Show_AUSTRALIA)
+   {
+      ObjectMakeLabel(Clockcorner,"sydl", left2, top);
+      ObjectMakeLabel(Clockcorner,"sydt", left-45, top);
+      top += 15;      
+   }
+   if (Show_JAPAN)
+   {
+      ObjectMakeLabel(Clockcorner,"tokl", left2, top);
+      ObjectMakeLabel(Clockcorner,"tokt", left-45, top);
+      top += 15;      
+   }
+   if (Show_HONG_KONG)
+   {
+      ObjectMakeLabel(Clockcorner,"HKl", left2, top);
+      ObjectMakeLabel(Clockcorner,"HKt", left-45, top);
+      top += 15;      
+   }         
+   if (Show_EUROPE)
+   {
+      ObjectMakeLabel(Clockcorner,"berl", left2, top);
+      ObjectMakeLabel(Clockcorner,"bert", left-45, top);
+      top += 15;      
+   }   
+   if (Show_LONDON)
+   {
+      ObjectMakeLabel(Clockcorner,"lonl", left2, top);
+      ObjectMakeLabel(Clockcorner,"lont", left-45, top);
+      top += 15;      
+   }
+   if (Show_NEW_YORK)
+   {
+      ObjectMakeLabel(Clockcorner,"nyl", left2, top);
+      ObjectMakeLabel(Clockcorner,"nyt", left-45, top);
+      top += 15;      
+   }
+      ObjectMakeLabel(Clockcorner,"session_opent", left-45, top);
+      top += 15; 
+      ObjectMakeLabel(Clockcorner,"session_closet", left-45, top);
+      top += 15; 
+}
+
 int OnInit()
   {
 //--- check for DLL
@@ -212,6 +343,8 @@ int OnInit()
       Alert(INAME+": Please Allow DLL Imports!");
       return(INIT_FAILED);
      }
+     initClock();
+
 //--- indicator buffers mapping
    SetIndexBuffer(0,MinuteBuffer);
    SetIndexBuffer(1,ImpactBuffer);
@@ -232,10 +365,10 @@ int OnInit()
    if(!FileIsExist(xmlFileName))
      {
       xmlDownload();
-      xmlRead();
+      sData=xmlRead(xmlFileName);
      }
 //--- else just read it 
-   else xmlRead();
+   else sData=xmlRead(xmlFileName);
 //--- get last modification time
    xmlModifed=(datetime)FileGetInteger(xmlFileName,FILE_MODIFY_DATE,false);
 //--- check for updates
@@ -262,6 +395,388 @@ int OnInit()
 //---
    return(INIT_SUCCEEDED);
   }
+  
+  // -----------------------------------------------------------------------------------------------------------------------------
+int deinitClock() 
+{ 
+//----
+   ObjectDelete("locl");
+   ObjectDelete("loct");
+   ObjectDelete("nyl");
+   ObjectDelete("nyt");
+   ObjectDelete("gmtl");
+   ObjectDelete("gmtt");
+   ObjectDelete("berl");
+   ObjectDelete("bert");
+   ObjectDelete("NZDl");
+   ObjectDelete("NZDt");   
+   ObjectDelete("lonl");
+   ObjectDelete("lont");
+   ObjectDelete("tokl");
+   ObjectDelete("tokt");
+   ObjectDelete("HKl");
+   ObjectDelete("HKt");   
+   ObjectDelete("sydl");
+   ObjectDelete("sydt");   
+   ObjectDelete("brol");
+   ObjectDelete("brot");
+
+   ObjectDelete("session_opent");
+   ObjectDelete("session_closet");
+   return(0); 
+} 
+
+void ShowClock()
+{
+   int    TimeArray[4];
+   int    TZInfoArray[43];
+   int    nYear,nMonth,nDay,nHour,nMin,nSec,nMilliSec;
+   
+   GetLocalTime(TimeArray);
+//---- parse date and time from array
+   nYear=TimeArray[0]&0x0000FFFF;
+   nMonth=TimeArray[0]>>16;
+   nDay=TimeArray[1]>>16;
+   nHour=TimeArray[2]&0x0000FFFF;
+   nMin=TimeArray[2]>>16;
+   nSec=TimeArray[3]&0x0000FFFF;
+   nMilliSec=TimeArray[3]>>16;
+   string LocalTimeS = FormatDateTime(nYear,nMonth,nDay,nHour,nMin,nSec);
+   datetime localTime = StrToTime( LocalTimeS );
+   //-----------------------------------------------------  
+   string GMTs = myTimeToString(show12HourTime, GMT );
+   string locals = myTimeToString(show12HourTime, localTime  );
+   string londons = myTimeToString(show12HourTime, london  );
+   string frankfurts = myTimeToString(show12HourTime, frankfurt );
+   string tokyos = myTimeToString(show12HourTime, tokyo  );
+   string newyorks = myTimeToString(show12HourTime, newyork  );
+   string sydneys = myTimeToString (show12HourTime, sydney );
+   string aucklands = myTimeToString(show12HourTime, auckland );
+   string hongkongs = myTimeToString(show12HourTime, hongkong );
+   string brokers = myTimeToString(show12HourTime, CurTime() );
+
+   //-----------------------------------------------------
+   LondonTZ = GMT_Offset("LONDON",localTime);   //GBP
+   TokyoTZ = GMT_Offset("TOKYO",localTime);     //JPY
+   NewYorkTZ = GMT_Offset("US",localTime);      //USD
+   SydneyTZ = GMT_Offset("SYDNEY",localTime);   //AUD
+   BerlinTZ = GMT_Offset("FRANKFURT",localTime);//EUR
+   AucklandTZ = GMT_Offset("AUCKLAND",localTime);//NZD
+   HongKongTZ = GMT_Offset("HONGKONG",localTime);//CNY
+   //-----------------------------------------------------
+
+   int gmt_shift=4;
+   int dst=GetTimeZoneInformation(TZInfoArray);
+   if(dst!=0) gmt_shift=TZInfoArray[0];
+   if(dst==2) gmt_shift+=TZInfoArray[42];
+
+   GMT = localTime - gmt_shift * 3600;
+   
+   london = GMT + 3600 * LondonTZ;
+   tokyo = GMT + 3600 * TokyoTZ;
+   newyork = GMT + 3600 * NewYorkTZ;
+   sydney = GMT + 3600 * SydneyTZ;
+   frankfurt = GMT + 3600 * BerlinTZ;
+   auckland = GMT +3600 * AucklandTZ;
+   hongkong = GMT + 3600 * HongKongTZ;
+  
+   if ( ShowLocal ) {
+      ObjectSetText( "locl", "Local time", 10, "Arial Black", labelColor );
+      ObjectSetText( "loct", locals, 10, "Arial Black", ClockMktOpenColor );
+     }
+   if ( ShowBroker ) {
+      ObjectSetText( "brol", "Broker time", 10, "Arial Black", labelColor );
+      ObjectSetText( "brot", brokers, 10, "Arial Black", ClockMktOpenColor );
+     }      
+   if ( ShowGMT ) {
+      ObjectSetText( "gmtl", "GMT", 10, "Arial Black", labelColor );
+      ObjectSetText( "gmtt", GMTs, 10, "Arial Black", ClockMktOpenColor );
+     }
+
+//---------------------------   
+//--------------------------
+   if( Show_NEW_ZEALAND )
+   {
+    if (NZDHoliday < TimeCurrent())
+    {
+     if ((auckland > StrToTime ("10:00"))&& (auckland <  StrToTime("16:45"))&& TimeDayOfWeek(auckland) != 0 && TimeDayOfWeek(auckland) != 6)          
+          {
+           ObjectSetText( "NZDl", "New Zealand ", 10, "Arial Black", ClockMktOpenColor );
+           ObjectSetText( "NZDt", aucklands, 10, "Arial Black", ClockMktOpenColor );   
+          }
+   	 else
+          {
+           ObjectSetText( "NZDl", "New Zealand ", 10, "Arial Black", labelColor );
+           ObjectSetText( "NZDt", aucklands, 10, "Arial Black", clockColor );   
+          }
+    }
+    if (NZDHoliday > TimeCurrent())
+          {
+           ObjectSetText( "NZDl", "New Zealand market Holiday ", 10, "Arial Black", ClockMktHolidayClr );
+           ObjectSetText( "NZDt", aucklands, 10, "Arial Black", ClockMktHolidayClr );   
+          }    
+   }
+//---------------------------
+   if ( Show_AUSTRALIA )
+   {
+    if (AUDHoliday < TimeCurrent())    
+   {
+    if ((sydney > StrToTime ("10:00"))&& (sydney <  StrToTime("17:00"))&& TimeDayOfWeek(sydney) != 0 && TimeDayOfWeek(sydney) != 6)          
+         {
+          ObjectSetText( "sydl", "Australia ", 10, "Arial Black", ClockMktOpenColor );   
+          ObjectSetText( "sydt", sydneys, 10, "Arial Black", ClockMktOpenColor );
+         }
+   	else
+   	{
+       ObjectSetText( "sydl", "Australia ", 10, "Arial Black", labelColor );
+       ObjectSetText( "sydt", sydneys, 10, "Arial Black", clockColor );        
+   	}
+   }
+    if (AUDHoliday > TimeCurrent())
+          {
+           ObjectSetText( "sydl", "Australia market Holiday ", 10, "Arial Black", ClockMktHolidayClr );
+           ObjectSetText( "sydt", sydneys, 10, "Arial Black", ClockMktHolidayClr );   
+          }    
+   }
+//---------------------------      
+   if ( Show_JAPAN ) 
+   {
+    if (JPYHoliday < TimeCurrent())
+   {
+    if ((tokyo > StrToTime ("9:00"))&& (tokyo <  StrToTime("12:30"))&& TimeDayOfWeek(tokyo) != 0 && TimeDayOfWeek(tokyo) != 6)
+         {
+          ObjectSetText( "tokl", "Japan ", 10, "Arial Black", ClockMktOpenColor );
+          ObjectSetText( "tokt", tokyos, 10, "Arial Black", ClockMktOpenColor );   
+         }
+      else
+       if ((tokyo > StrToTime ("14:00"))&& (tokyo <  StrToTime("17:00"))&& TimeDayOfWeek(tokyo) != 0 && TimeDayOfWeek(tokyo) != 6)
+         {
+          ObjectSetText( "tokl", "Japan ", 10, "Arial Black", ClockMktOpenColor );
+          ObjectSetText( "tokt", tokyos, 10, "Arial Black", ClockMktOpenColor );   
+         }      
+      else
+      {
+       ObjectSetText( "tokl", "Japan ", 10, "Arial Black", labelColor );
+       ObjectSetText( "tokt", tokyos, 10, "Arial Black", clockColor );   
+      }
+   }
+    if (JPYHoliday > TimeCurrent())
+          {
+           ObjectSetText( "tokl", "Japan market Holiday ", 10, "Arial Black", ClockMktHolidayClr );
+           ObjectSetText( "tokt", tokyos, 10, "Arial Black", ClockMktHolidayClr );   
+          }    
+   }
+//---------------------------         
+   if (Show_HONG_KONG) 
+   {
+    if (CNYHoliday < TimeCurrent())
+    {
+     if ((hongkong > StrToTime ("10:00"))&& (hongkong <  StrToTime("17:00"))&& TimeDayOfWeek(hongkong) != 0 && TimeDayOfWeek(hongkong) != 6)   
+         {
+          ObjectSetText( "HKl", "Hong Kong ", 10, "Arial Black", ClockMktOpenColor );
+          ObjectSetText( "HKt", hongkongs, 10, "Arial Black", ClockMktOpenColor );   
+         }
+   	else
+   	{         
+       ObjectSetText( "HKl", "Hong Kong ", 10, "Arial Black", labelColor );
+       ObjectSetText( "HKt", hongkongs, 10, "Arial Black", clockColor );
+      }
+   }   
+    if (CNYHoliday > TimeCurrent())
+          {
+           ObjectSetText( "HKl", "Hong Kong market Holiday ", 10, "Arial Black", ClockMktHolidayClr );
+           ObjectSetText( "HKt", hongkongs, 10, "Arial Black", ClockMktHolidayClr );   
+          }    
+   }
+   //--------------------------- 
+   if (Show_EUROPE)
+   {
+    if (EURHoliday < TimeCurrent())
+   {
+    if ((frankfurt > StrToTime ("9:00"))&& (frankfurt <  StrToTime("17:30"))&& TimeDayOfWeek(frankfurt) != 0 && TimeDayOfWeek(frankfurt) != 6)
+         {
+          ObjectSetText( "berl", "Europe ", 10, "Arial Black", ClockMktOpenColor );
+          ObjectSetText( "bert", frankfurts, 10, "Arial Black", ClockMktOpenColor );   
+         }
+   	else
+   	{
+       ObjectSetText( "berl", "Europe ", 10, "Arial Black", labelColor );
+       ObjectSetText( "bert", frankfurts, 10, "Arial Black", clockColor );   
+   	}
+   }   
+    if (EURHoliday > TimeCurrent())
+          {
+           ObjectSetText( "berl", "European market Holiday ", 10, "Arial Black", ClockMktHolidayClr );
+           ObjectSetText( "bert", frankfurts, 10, "Arial Black", ClockMktHolidayClr );   
+          }    
+   }
+//---------------------------      
+   if (Show_LONDON)
+   {
+    if (GBPHoliday < TimeCurrent())
+   {
+    if ((london > StrToTime ("8:00"))&& (london <  StrToTime("17:00"))&& TimeDayOfWeek(london) != 0 && TimeDayOfWeek(london) != 6)          
+         {
+          ObjectSetText( "lonl", "UK ", 10, "Arial Black",ClockMktOpenColor );
+          ObjectSetText( "lont", londons, 10, "Arial Black",ClockMktOpenColor );   
+         }
+   	else
+   	{
+       ObjectSetText( "lonl", "UK ", 10, "Arial Black", labelColor );
+       ObjectSetText( "lont", londons, 10, "Arial Black", clockColor );  
+   	}
+   }
+    if (GBPHoliday > TimeCurrent())
+          {
+           ObjectSetText( "lonl", "London market Holiday ", 10, "Arial Black", ClockMktHolidayClr );
+           ObjectSetText( "lont", londons, 10, "Arial Black", ClockMktHolidayClr );   
+          }    
+   }
+//---------------------------               
+   if (Show_NEW_YORK)
+   {
+    if (USDHoliday < TimeCurrent())
+   {
+    if ((newyork > StrToTime ("8:00"))&& (newyork <  StrToTime("17:00"))&& TimeDayOfWeek(newyork) != 0 && TimeDayOfWeek(newyork) != 6)          
+         {
+          ObjectSetText( "nyl", "North America ", 10, "Arial Black",ClockMktOpenColor );
+          ObjectSetText( "nyt", newyorks, 10, "Arial Black",ClockMktOpenColor );   
+         }
+   	else
+   	{
+       ObjectSetText( "nyl", "North America ", 10, "Arial Black", labelColor );
+       ObjectSetText( "nyt", newyorks, 10, "Arial Black", clockColor ); 
+   	}
+   }
+    if (USDHoliday > TimeCurrent())
+          {
+           ObjectSetText( "nyl", "New York market Holiday ", 10, "Arial Black", ClockMktHolidayClr );
+           ObjectSetText( "nyt", newyorks, 10, "Arial Black", ClockMktHolidayClr );   
+          }    
+   }
+   
+   DisplaySessionInfo();
+}
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void DisplaySessionInfo()
+{
+   string openSessions = "Active sessions: ";
+   string closingSession = "";
+//----
+// info from http://www.2011.worldmarkethours.com/Forex/index1024.htm 
+// New Zealand/Auckland.............: 10.00 - 16.45   localtimes timezone country
+// Australia/Sydney local session...: 10.00 - 17.00
+// Japan/Tokyo......................:  9.00 - 12.30    Re-opens  14.00 - 17.00 
+// Hong Kong........................: 10.00 - 17.00
+// Europe...........................:  9.00 - 17.30
+// London local session.............: 08.00 - 17.00
+// New York local session...........: 08.00 - 17.00
+
+
+//New Zealand....: 10.00 - 16.45
+if(NZDHoliday < TimeCurrent()){
+  if ((auckland > StrToTime ("9:45"))&& (auckland <  StrToTime("10:00"))&& TimeDayOfWeek(auckland) != 0 && TimeDayOfWeek(auckland) != 6)
+      {closingSession = "New Zealand opens in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";}
+  if ((auckland > StrToTime ("10:00"))&& (auckland <  StrToTime("16:45"))&& TimeDayOfWeek(auckland) != 0 && TimeDayOfWeek(auckland) != 6)
+   {
+      openSessions = openSessions + " New Zealand";
+      if(TimeHour(auckland) == 16 && TimeMinute(auckland)>14 && TimeMinute(auckland)<45)
+       {
+         closingSession = "New Zealand closing in " + (string)(45 - TimeMinute(TimeLocal()))+ " mins";
+       } 
+   }
+ }     
+//Australia...: 10.00 - 17.00
+if(AUDHoliday < TimeCurrent()){   
+  if ((sydney > StrToTime ("9:45"))&& (sydney <  StrToTime("10:00"))&& TimeDayOfWeek(sydney) != 0 && TimeDayOfWeek(sydney) != 6)
+      {closingSession = "Australia opens in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";}
+  if ((sydney > StrToTime ("10:00"))&& (sydney <  StrToTime("17:00"))&& TimeDayOfWeek(sydney) != 0 && TimeDayOfWeek(sydney) != 6)
+   {
+       openSessions = openSessions + " Australia";
+       if(TimeHour(sydney) == 16 && TimeMinute(sydney)>29)
+       {
+         closingSession = "Australia closing in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";
+       } 
+   }
+ }    
+//Japan ....:  9.00 - 12.30    Re-opens  14.00 - 17.00
+if(JPYHoliday < TimeCurrent()){
+   if (tokyo >= StrToTime ("8:45") && tokyo <  StrToTime("9:00") && TimeDayOfWeek(tokyo) > 0 && TimeDayOfWeek(tokyo) < 6 )   
+        {closingSession = "Tokyo first session opens in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";}
+   if (TimeHour(tokyo) >= 9 && TimeHour(tokyo) < 17 && TimeDayOfWeek(tokyo) > 0 && TimeDayOfWeek(tokyo) < 6 )
+   {   
+    if ((tokyo > StrToTime ("9:00"))&& (tokyo <  StrToTime("12:30"))&& TimeDayOfWeek(tokyo) != 0 && TimeDayOfWeek(tokyo) != 6)
+       {openSessions = openSessions + " Tokyo";}
+    if (tokyo >= StrToTime ("13:45") && tokyo <  StrToTime("14:00") && TimeDayOfWeek(tokyo) > 0 && TimeDayOfWeek(tokyo) < 6 )
+       {closingSession = "Tokyo second session opens in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";}          
+    if ((tokyo > StrToTime ("14:00"))&& (tokyo <  StrToTime("17:00"))&& TimeDayOfWeek(tokyo) != 0 && TimeDayOfWeek(tokyo) != 6)       
+       {openSessions = openSessions + " Tokyo";}
+       if(TimeHour(tokyo) == 16 && TimeMinute(tokyo)>29)
+       {
+         closingSession = "Tokyo final closing in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";
+       } 
+   }
+ }     
+//Hong Kong..: 10.00 - 17.00
+if(CNYHoliday < TimeCurrent()){
+    if ((hongkong > StrToTime ("10:00"))&& (hongkong <  StrToTime("17:00"))&& TimeDayOfWeek(hongkong) != 0 && TimeDayOfWeek(hongkong) != 6)
+   {
+       openSessions = openSessions + " Hong Kong";
+       if(TimeHour(hongkong) == 16 && TimeMinute(hongkong)>29)
+       {
+         closingSession = "Hong Kong closing in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";
+       } 
+   }
+ }    
+//Europe...:  9.00 - 17.30
+if(EURHoliday < TimeCurrent()){
+   if (frankfurt >= StrToTime ("8:45") && frankfurt <  StrToTime("9:00") && TimeDayOfWeek(london) > 0 && TimeDayOfWeek(london) < 6 )   
+        {closingSession = "Europe opens in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";}
+    if ((frankfurt > StrToTime ("9:00"))&& (frankfurt <  StrToTime("17:30"))&& TimeDayOfWeek(frankfurt) != 0 && TimeDayOfWeek(frankfurt) != 6)
+   {
+       openSessions = openSessions + " Europe";
+       if(TimeHour(frankfurt) == 17 && TimeMinute(frankfurt)<30)
+       {
+         closingSession = "Europe closing in " + (string)(30 - TimeMinute(TimeLocal()))+ " mins";
+       } 
+   }
+ }     
+// London....: 08.00 - 17.00
+if(GBPHoliday < TimeCurrent()){
+   if (london >= StrToTime ("7:45") && london <  StrToTime("8:00") && TimeDayOfWeek(london) > 0 && TimeDayOfWeek(london) < 6 )   
+        {closingSession = "London opens in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";}
+   if (TimeHour(london) >= 8 && TimeHour(london) < 17 && TimeDayOfWeek(london) > 0 && TimeDayOfWeek(london) < 6 )
+   {      
+         openSessions = openSessions + " London";
+         if(TimeHour(london) == 16 && TimeMinute(london)>29)
+       {
+         closingSession = "London closing in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";
+       } 
+   }
+ }  
+// New York....: 08.00 - 17.00
+if(USDHoliday < TimeCurrent()){
+   if (newyork >= StrToTime ("7:45") && newyork <  StrToTime("8:00") && TimeDayOfWeek(newyork) > 0 && TimeDayOfWeek(newyork) < 6 )   
+        {closingSession = "New York opens in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";}  
+   if (TimeHour(newyork) >= 8 && TimeHour(newyork) < 17 && TimeDayOfWeek(newyork) > 0 && TimeDayOfWeek(newyork) < 6 )
+   {
+       openSessions = openSessions + " New York";
+       if(TimeHour(newyork) == 16)
+       {
+         closingSession = "New York closing in " + (string)(60 - TimeMinute(TimeLocal()))+ " mins";
+       } 
+   }
+ }  
+   
+//----
+   if(openSessions == "Active sessions: ") openSessions = "Markets Closed";
+   ObjectSetText("session_opent", openSessions,12, "Arial Black", session_upcoming_title_color);
+   ObjectSetText("session_closet",closingSession ,10, "Arial Black", session_closing_color);
+
+}
 //+------------------------------------------------------------------+
 //| Custom indicator iteration function                              |
 //+------------------------------------------------------------------+
@@ -277,6 +792,8 @@ int OnCalculate(const int rates_total,
                 const int &spread[])
   {
 //---
+   ShowClock();
+   
 //--- BY AUTHORS WITH SOME MODIFICATIONS
 //--- define the XML Tags, Vars
    string sTags[7]={"<title>","<country>","<date><![CDATA[","<time><![CDATA[","<impact><![CDATA[","<forecast><![CDATA[","<previous><![CDATA["};
@@ -421,6 +938,7 @@ void OnTimer()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
+  deinitClock();
 //---
    for(int i=ObjectsTotal(); i>=0; i--)
      {
@@ -448,28 +966,7 @@ void xmlDownload()
    else PrintFormat(INAME+": failed to download %s file, Error code = %d",xmlFileName,GetLastError());
 //---
   }
-//+------------------------------------------------------------------+
-//| Read the XML file                                                |
-//+------------------------------------------------------------------+
-void xmlRead()
-  {
-//---
-   ResetLastError();
-   int FileHandle=FileOpen(xmlFileName,FILE_BIN|FILE_READ);
-   if(FileHandle!=INVALID_HANDLE)
-     {
-      //--- receive the file size 
-      ulong size=FileSize(FileHandle);
-      //--- read data from the file
-      while(!FileIsEnding(FileHandle))
-         sData=FileReadString(FileHandle,(int)size);
-      //--- close
-      FileClose(FileHandle);
-     }
-//--- check for errors   
-   else PrintFormat(INAME+": failed to open %s file, Error code = %d",xmlFileName,GetLastError());
-//---
-  }
+
 //+------------------------------------------------------------------+
 //| Check for update XML                                             |
 //+------------------------------------------------------------------+
@@ -483,7 +980,7 @@ void xmlUpdate()
       Print(INAME+": delete old file");
       FileDelete(xmlFileName);
       xmlDownload();
-      xmlRead();
+      sData=xmlRead(xmlFileName);
       xmlModifed=(datetime)FileGetInteger(xmlFileName,FILE_MODIFY_DATE,false);
       PrintFormat(INAME+": updated successfully! last modified: %s",(string)xmlModifed);
      }
